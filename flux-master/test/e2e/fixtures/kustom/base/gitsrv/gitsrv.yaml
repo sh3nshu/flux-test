@@ -1,0 +1,66 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    name: gitsrv
+  name: gitsrv
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: gitsrv
+  template:
+    metadata:
+      labels:
+        name: gitsrv
+    spec:
+      containers:
+      - image: fluxcd/gitsrv:v1.0.0
+        name: git
+        env:
+        - name: REPO
+          value: "cluster.git"
+        - name: TAR_URL
+          value: "https://github.com/fluxcd/flux-get-started/archive/a4bdf4bb92c35cf9e944788368510168ee0bedf4.tar.gz"
+        ports:
+        - containerPort: 22
+          name: ssh
+          protocol: TCP
+        readinessProbe:
+          tcpSocket:
+            port: 22
+          initialDelaySeconds: 20
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 22
+          initialDelaySeconds: 20
+          periodSeconds: 10
+        volumeMounts:
+        - mountPath: /git-server/repos
+          name: git-server-data
+        - mountPath: /git-server/keys
+          name: flux-git-deploy
+      volumes:
+      - name: flux-git-deploy
+        secret:
+          secretName: flux-git-deploy
+      - name: git-server-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: gitsrv
+  name: gitsrv
+spec:
+  ports:
+    - name: ssh
+      port: 22
+      protocol: TCP
+      targetPort: ssh
+  selector:
+    name: gitsrv
+  type: ClusterIP
